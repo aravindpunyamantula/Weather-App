@@ -3,7 +3,7 @@ import 'package:weather_app/domain/entities/current_weather_entity.dart';
 
 class BackgroundThemeProvider  with ChangeNotifier{
   Gradient _currentGradient = _afternoonGradient;
-  Color _bottomNavColor = const Color(0xFFfda085); 
+  Color _bottomNavColor = const Color(0xFFc2e9fb); 
   Color _textColor =  Colors.black;
   Color _iconColor = Colors.grey;
 
