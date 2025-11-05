@@ -6,6 +6,7 @@ import 'package:weather_app/presentation/providers/background_theme_provider.dar
 import 'package:weather_app/presentation/providers/todays_weather_provider.dart';
 import 'package:weather_app/presentation/providers/weather_provider.dart';
 import 'package:weather_app/presentation/widgets/weather_scaffold.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,14 +15,39 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
  
- @override
+
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+        'Location permissions are permanently denied, we cannot request permission',
+      );
+    }
+
+    return await Geolocator.getCurrentPosition();
+  }
+
+
+
+
+  @override
   void initState() {
     super.initState();
-   
-    
   }
 
   @override
@@ -32,9 +58,7 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
 
-   
-
-    return  WeatherScaffold(
+    return WeatherScaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -51,13 +75,19 @@ class _HomePageState extends State<HomePage> {
                       ? TextField(
                           onChanged: provider.loadLocations,
                           decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.search, color: bgProvider.iconColor,),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: bgProvider.iconColor,
+                            ),
                             suffixIcon: IconButton(
                               onPressed: () {
                                 todaysWeatherProvider.updateIsSearch(false);
                                 provider.clearLocations();
                               },
-                              icon: Icon(Icons.close, color: bgProvider.iconColor,),
+                              icon: Icon(
+                                Icons.close,
+                                color: bgProvider.iconColor,
+                              ),
                             ),
                             hintText: "Enter city name",
                             hintStyle: TextStyle(color: bgProvider.iconColor),
@@ -67,22 +97,17 @@ class _HomePageState extends State<HomePage> {
                         )
                       : Padding(
                           padding: const EdgeInsets.all(4.0),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                onPressed: () {
-                                  todaysWeatherProvider.updateIsSearch(true);
-                                },
-                                icon: Icon(Icons.search, color: bgProvider.iconColor,),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton(
+                              onPressed: () {
+                                todaysWeatherProvider.updateIsSearch(true);
+                              },
+                              icon: Icon(
+                                Icons.search,
+                                color: bgProvider.iconColor,
                               ),
-                              Spacer(),
-                              IconButton(
-                                onPressed: (){
-                                  provider.setLocation(provider.location ?? "");
-                                }, 
-                                icon: Icon(Icons.refresh_rounded, color: bgProvider.iconColor,)
-                                )
-                            ],
+                            ),
                           ),
                         ),
                 ),
@@ -104,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-              if (provider.location == null &&
+              if(provider.location == null &&
                       !todaysWeatherProvider.isSearch &&
                       provider.isCurrentWeatherLoading ||
                   provider.isFutureForecastLoading)
@@ -153,7 +178,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-                          SizedBox(height: 12,),
+                          SizedBox(height: 12),
                           Text("Feels Like", style: textTheme.bodyLarge),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -171,14 +196,14 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-      
-              if (provider.locations != null && provider.locations!.isNotEmpty && provider.error == null)
+
+              if (provider.error == null &&
+                  todaysWeatherProvider.isSearch)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: AnimatedContainer(
-                    duration: Duration(milliseconds: 300),
+                    duration: Duration(milliseconds: 1000),
                     padding: EdgeInsets.all(12),
-                    height: provider.isLocationsLoading ? 20 : 150,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.blueGrey.withOpacity(0.3),
@@ -186,28 +211,57 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: provider.isLocationsLoading
                         ? Center(child: CupertinoActivityIndicator())
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: provider.locations?.length ?? 0,
-                            itemBuilder: (context, index) {
-                              final loc = provider.locations![index];
-                              return ListTile(
-                                contentPadding: EdgeInsets.all(0),
-                                onTap: (){
-                                  provider.setLocation(loc.name);
-                                  todaysWeatherProvider.updateIsSearch(false);
-                                  if(provider.isCurrentWeatherLoading){
-                                    Future.delayed(Duration(seconds: 2));
-                                  }
-
-                                  Provider.of<BackgroundThemeProvider>(context, listen: false).updateBg(provider.weather);
-
-                                },
-                                title: Text(
-                                  '${loc.name}, ${loc.region}, ${loc.country}',
+                        : SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  onTap: () async {
+                                    final location = await _determinePosition();
+                                      provider.setLocation("${location.latitude}, ${location.longitude}");
+                                      todaysWeatherProvider.updateIsSearch(
+                                        false,
+                                      );
+                                      Provider.of<BackgroundThemeProvider>(
+                                        context,
+                                        listen: false,
+                                      ).updateBg(provider.weather);
+                                  },
+                                  leading: Icon(
+                                    Icons.location_on,
+                                    color: Colors.blue,
+                                  ),
+                                  title: Text(
+                                    "Current Location",
+                                    style: textTheme.bodyMedium!.copyWith(
+                                      color: Colors.blue,
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
+                                ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: provider.locations?.length ?? 0,
+                                  itemBuilder: (context, index) {
+                                    final loc = provider.locations![index];
+                                    return ListTile(
+                                      contentPadding: EdgeInsets.all(0),
+                                      onTap: () {
+                                         todaysWeatherProvider.updateIsSearch(
+                                          false,
+                                        );
+                                        provider.setLocation(loc.name);
+                                        Provider.of<BackgroundThemeProvider>(
+                                          context,
+                                          listen: false,
+                                        ).updateBg(provider.weather);
+                                      },
+                                      title: Text(
+                                        '${loc.name}, ${loc.region}, ${loc.country}',
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                   ),
                 ),
@@ -234,7 +288,7 @@ class _HomePageState extends State<HomePage> {
                           "Wind",
                           "${provider.weather?.windKph ?? 0}km/h",
                           textTheme,
-                          Colors.teal
+                          Colors.teal,
                         ),
                         customTile(
                           provider,
@@ -242,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                           "Wind Direction",
                           "${provider.weather?.windDir}",
                           textTheme,
-                          Colors.deepOrange
+                          Colors.deepOrange,
                         ),
                         customTile(
                           provider,
@@ -250,7 +304,7 @@ class _HomePageState extends State<HomePage> {
                           "Humidity",
                           "${provider.weather?.humidity ?? 0}%",
                           textTheme,
-                          Colors.blueAccent
+                          Colors.blueAccent,
                         ),
                         customTile(
                           provider,
@@ -258,7 +312,7 @@ class _HomePageState extends State<HomePage> {
                           "Dew Point",
                           "${provider.weather?.dewpointC.toInt() ?? 0}°",
                           textTheme,
-                          Colors.red
+                          Colors.red,
                         ),
                         customTile(
                           provider,
@@ -266,7 +320,7 @@ class _HomePageState extends State<HomePage> {
                           "UV Index",
                           "${provider.weather?.uv.toInt() ?? 0}",
                           textTheme,
-                          Colors.amber
+                          Colors.amber,
                         ),
                         customTile(
                           provider,
@@ -274,7 +328,7 @@ class _HomePageState extends State<HomePage> {
                           "Pressure",
                           "${provider.weather?.pressureMb ?? 0}mb",
                           textTheme,
-                          Colors.cyan
+                          Colors.cyan,
                         ),
                         customTile(
                           provider,
@@ -282,13 +336,13 @@ class _HomePageState extends State<HomePage> {
                           "Visibility",
                           "${provider.weather?.visibility ?? 0} km",
                           textTheme,
-                          Colors.indigo
+                          Colors.indigo,
                         ),
                       ],
                     ),
                   ),
                 ),
-      
+
               SizedBox(height: 12),
               if (provider.weather != null &&
                   !todaysWeatherProvider.isSearch &&
@@ -399,18 +453,19 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                
+
               SizedBox(height: 12),
               if (provider.location != null &&
                   !todaysWeatherProvider.isSearch &&
                   !provider.isCurrentWeatherLoading &&
                   !provider.isFutureForecastLoading)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text("Hourly Forecast", style: textTheme.titleLarge,),
-                )),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Text("Hourly Forecast", style: textTheme.titleLarge),
+                  ),
+                ),
               if (provider.location != null &&
                   !todaysWeatherProvider.isSearch &&
                   !provider.isCurrentWeatherLoading &&
@@ -451,15 +506,21 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-              
-              if(provider.location != null && provider.weather != null && !todaysWeatherProvider.isSearch)
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Container(
-                  padding: EdgeInsets.all(12),
-                  margin: EdgeInsets.all(12),
-                  child: Text("Last Updated: ${provider.weather?.lastUpdated ?? " "}", style: textTheme.labelLarge,)))
 
+              if (provider.location != null &&
+                  provider.weather != null &&
+                  !todaysWeatherProvider.isSearch)
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    padding: EdgeInsets.all(12),
+                    margin: EdgeInsets.all(12),
+                    child: Text(
+                      "Last Updated: ${provider.weather?.lastUpdated ?? " "}",
+                      style: textTheme.labelLarge,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -473,12 +534,15 @@ class _HomePageState extends State<HomePage> {
     String label,
     String value,
     TextTheme textTheme,
-    Color iconColor
+    Color iconColor,
   ) {
     return ListTile(
-      leading: Icon(icon, color: iconColor,),
+      leading: Icon(icon, color: iconColor),
       title: Text(label),
-      trailing: Text(value, style:textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.bold) ,),
+      trailing: Text(
+        value,
+        style: textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

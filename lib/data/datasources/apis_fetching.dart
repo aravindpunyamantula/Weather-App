@@ -21,7 +21,7 @@ WeatherApisFetching({required this.apiKey, required this.baseUrl,});
     return CurrentWeatherModel.fromJson(jsonDecode(res.body));
   }else{
     debugPrint("Error");
-    throw Exception("Error While Fetching");
+    throw Exception("Unable to fetch your location");
   }
  }on SocketException{
   throw Exception("Check your connection");

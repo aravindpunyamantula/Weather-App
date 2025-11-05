@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import 'package:weather_app/presentation/providers/background_theme_provider.dart';
@@ -112,7 +112,12 @@ class _WeatherNavigationBarState extends State<WeatherNavigationBar> {
                 ),
               ],
             ),
-            body: screens[navProvider.selectedIndex],
+            body: RefreshIndicator(
+              color: Colors.blueGrey,
+              backgroundColor: Colors.white,
+              onRefresh: () async => weatherProvider.setLocation(weatherProvider.location ?? "")
+               ,
+              child: screens[navProvider.selectedIndex]),
           );
   }
 }
