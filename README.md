@@ -119,7 +119,7 @@ App crashes on start	Run flutter clean then flutter pub get and restart.
 Web build not loading weather	Verify browser location permissions and HTTPS API usage.
 
 ## 👨‍💻 Author
-# Developed by: [Aravind Punyamantula](https://github.com/aravindpunyamantula)
+### Developed by: [Aravind Punyamantula](https://github.com/aravindpunyamantula)
 
 A Flutter enthusiast passionate about clean architecture and beautiful UI design.
 
